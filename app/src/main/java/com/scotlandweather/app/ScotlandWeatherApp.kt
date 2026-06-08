@@ -1,6 +1,7 @@
 package com.scotlandweather.app
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import kotlinx.coroutines.launch
@@ -556,46 +557,91 @@ private fun LandscapeLayout(
             }
         }
     ) { padding ->
-        Row(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // Side rail with controls
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            // Map fills remaining vertical space
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                MapScreen(
+                    state = state,
+                    onLocationClick = onLocationSelected
+                )
+
+                // Debug: location count
+                Text(
+                    text = "Weather: ${state.hourlyData.size}/${viewModel.allLocations.size}",
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(4.dp)
+                        .background(Color(0xAA000000), RoundedCornerShape(4.dp))
+                        .padding(4.dp)
+                )
+            }
+
+            // Compact control bar
             Surface(
-                modifier = Modifier
-                    .width(60.dp)
-                    .fillMaxHeight(),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(0.dp),
                 color = glassBg,
                 tonalElevation = 0.dp,
                 shadowElevation = 4.dp,
                 border = androidx.compose.foundation.BorderStroke(1.dp, glassBd)
             ) {
-                Column(
+                Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    LayerToggle(
-                        selectedLayer = state.selectedLayer,
-                        onLayerSelected = { layer ->
-                            viewModel.selectLayer(layer)
-                            showLayerMenu = false
-                        },
-                        expanded = showLayerMenu,
-                        onToggle = { showLayerMenu = !showLayerMenu }
-                    )
+                    Box {
+                        SmallFloatingActionButton(
+                            onClick = { showLayerMenu = true },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.White,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = layerToggleIcon(state.selectedLayer),
+                                contentDescription = "Select layer",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showLayerMenu,
+                            onDismissRequest = { showLayerMenu = false }
+                        ) {
+                            TileLayer.entries.forEach { layer ->
+                                DropdownMenuItem(
+                                    text = { Text(layer.displayName, fontSize = 12.sp) },
+                                    onClick = {
+                                        viewModel.selectLayer(layer)
+                                        showLayerMenu = false
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = layerToggleIcon(layer),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
 
                     SmallFloatingActionButton(
                         onClick = { viewModel.loadAllData() },
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = Color.White,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.size(44.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.size(32.dp)
                     ) {
                         if (state.isRefreshing) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(14.dp),
                                 strokeWidth = 2.dp,
                                 color = Color.White
                             )
@@ -603,7 +649,7 @@ private fun LandscapeLayout(
                             Icon(
                                 imageVector = Icons.Filled.Refresh,
                                 contentDescription = "Refresh",
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
@@ -612,77 +658,192 @@ private fun LandscapeLayout(
                         onClick = onShowFishingReports,
                         containerColor = OceanTeal,
                         contentColor = Color.White,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.size(44.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Menu,
                             contentDescription = "Fishing Reports",
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
 
-                    // Legend compact
                     Legend(
                         layer = state.selectedLayer,
-                        modifier = Modifier
-                            .width(48.dp)
-                            .heightIn(min = 80.dp)
+                        modifier = Modifier.width(120.dp)
                     )
 
-                    // Favorites
                     if (state.favoriteLocations.isNotEmpty()) {
                         FavoritesBar(
                             favoriteNames = state.favoriteLocations,
                             onFavoriteClick = onLocationSelected,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.widthIn(max = 160.dp)
                         )
                     }
-
-                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
 
-            // Map + bottom slider
-            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    MapScreen(
-                        state = state,
-                        onLocationClick = onLocationSelected
-                    )
-
-                    // Debug: location count
-                    Text(
-                        text = "Weather: ${state.hourlyData.size}/${viewModel.allLocations.size}",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(4.dp)
-                            .background(Color(0xAA000000), RoundedCornerShape(4.dp))
-                            .padding(4.dp)
-                    )
-                }
-
-                // Thin TimeSlider strip
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(0.dp),
-                    color = glassBg,
-                    tonalElevation = 0.dp,
-                    shadowElevation = 8.dp,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, glassBd)
+            // Compact TimeSlider (single row, no day buttons)
+            Surface(
+                modifier = Modifier.fillMaxWidth().height(40.dp),
+                shape = RoundedCornerShape(0.dp),
+                color = glassBg.copy(alpha = 0.7f),
+                tonalElevation = 0.dp,
+                shadowElevation = 2.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, glassBd)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    TimeSlider(
-                        selectedDay = state.selectedDay,
-                        selectedHour = state.selectedHour,
-                        onDaySelected = { viewModel.selectDay(it) },
-                        onHourSelected = { viewModel.selectHour(it) }
+                    // Day chips
+                    val dayLabels = (0..2).map { offset ->
+                        val date = java.time.LocalDate.now().plusDays(offset.toLong())
+                        when (offset) { 0 -> "Tdy"; 1 -> "Tmrw"; else -> date.format(java.time.format.DateTimeFormatter.ofPattern("d/M")) }
+                    }
+                    dayLabels.forEachIndexed { index, label ->
+                        val isDaySel = index == state.selectedDay
+                        Surface(
+                            onClick = { viewModel.selectDay(index) },
+                            shape = RoundedCornerShape(4.dp),
+                            color = if (isDaySel) OceanBlue else Color.Transparent,
+                            border = if (isDaySel) null else androidx.compose.foundation.BorderStroke(1.dp, OceanBlue.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 9.sp,
+                                color = if (isDaySel) Color.White else OceanBlue,
+                                fontWeight = if (isDaySel) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    // Hour slider
+                    Slider(
+                        value = state.selectedHour.toFloat() / 23f,
+                        onValueChange = { viewModel.selectHour((it * 23f).toInt().coerceIn(0, 23)) },
+                        modifier = Modifier.weight(1f).height(24.dp),
+                        colors = SliderDefaults.colors(
+                            thumbColor = OceanBlue,
+                            activeTrackColor = OceanBlue,
+                            inactiveTrackColor = MaterialTheme.colorScheme.surface
+                        )
+                    )
+
+                    // Current hour
+                    Text(
+                        text = "${state.selectedHour.toString().padStart(2, '0')}:00",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp,
+                        color = OceanTeal,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun TimeSliderCompact(
+    selectedDay: Int,
+    selectedHour: Int,
+    onDaySelected: (Int) -> Unit,
+    onHourSelected: (Int) -> Unit
+) {
+    val dayLabels = (0..2).map { offset ->
+        val date = java.time.LocalDate.now().plusDays(offset.toLong())
+        when (offset) {
+            0 -> "Today"
+            1 -> "Tomorrow"
+            else -> date.format(java.time.format.DateTimeFormatter.ofPattern("EEE d/M"))
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+        // Day selector row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            dayLabels.forEachIndexed { index, label ->
+                val isSelected = index == selectedDay
+                Surface(
+                    onClick = { onDaySelected(index) },
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (isSelected) OceanBlue else MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurface,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Hour slider (no hour grid)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "00",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                fontSize = 10.sp
+            )
+            Slider(
+                value = selectedHour.toFloat() / 23f,
+                onValueChange = { onHourSelected((it * 23f).toInt().coerceIn(0, 23)) },
+                modifier = Modifier.weight(1f),
+                colors = SliderDefaults.colors(
+                    thumbColor = OceanBlue,
+                    activeTrackColor = OceanBlue,
+                    inactiveTrackColor = MaterialTheme.colorScheme.surface
+                )
+            )
+            Text(
+                text = "23",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                fontSize = 10.sp
+            )
+        }
+
+        // Current hour label
+        Text(
+            text = "${selectedHour.toString().padStart(2, '0')}:00",
+            style = MaterialTheme.typography.labelSmall,
+            color = OceanTeal,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+private fun layerToggleIcon(layer: TileLayer) = when (layer) {
+    TileLayer.TEMPERATURE -> Icons.Filled.Thermostat
+    TileLayer.PRECIPITATION -> Icons.Filled.WaterDrop
+    TileLayer.RAIN_CHANCE -> Icons.Filled.WaterDrop
+    TileLayer.WIND -> Icons.Filled.Air
+    TileLayer.PRESSURE -> Icons.Filled.Speed
+    TileLayer.CLOUD -> Icons.Filled.Cloud
+    TileLayer.UV -> Icons.Filled.Lightbulb
+    TileLayer.SOLUNAR -> Icons.Filled.DarkMode
+    TileLayer.RANKING -> Icons.Filled.EmojiEvents
 }
 
 @Composable
