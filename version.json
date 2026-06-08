@@ -1,0 +1,7 @@
+{
+  "versionCode": 1,
+  "versionName": "1.0.0",
+  "downloadUrl": "https://github.com/MrdrMittenz/ScotlandWeatherApp/releases/latest/download/app-release.apk",
+  "changelog": "Initial release with live webcams, polar/lunar data, species guide, fishing reports, and interactive map.",
+  "minApiLevel": 26
+}

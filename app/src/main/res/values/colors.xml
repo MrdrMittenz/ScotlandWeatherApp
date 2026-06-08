@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ocean_blue">#FF58A6FF</color>
+    <color name="ocean_teal">#FF56D4C8</color>
+    <color name="sunset_orange">#FFF0883E</color>
+    <color name="fishing_green">#FF3FB950</color>
+    <color name="dark_background">#FF0D1117</color>
+    <color name="dark_surface">#FF161B22</color>
+</resources>
