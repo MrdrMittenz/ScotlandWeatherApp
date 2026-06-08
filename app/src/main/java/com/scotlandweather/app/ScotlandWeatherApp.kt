@@ -36,7 +36,6 @@ fun ScotlandWeatherApp(viewModel: WeatherViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
 
     // UI state
-    var showLayerMenu by remember { mutableStateOf(false) }
     var showLocationList by remember { mutableStateOf(false) }
     var showBottomSheet by remember { mutableStateOf(false) }
     var showFishingReports by remember { mutableStateOf(false) }
@@ -64,241 +63,54 @@ fun ScotlandWeatherApp(viewModel: WeatherViewModel = viewModel()) {
         state.error?.let { snackbarHostState.showSnackbar(it) }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            val barBrush = if (state.isDarkMode) AppBarGradient else AppBarGradientLight
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(barBrush)
-            ) {
-                TopAppBar(
-                    title = {
-                        Column {
-                            Text(
-                                text = "Fair Weather Fishing",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                            Text(
-                                text = "Scotland Fishing Planner",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.8f)
-                            )
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = { showLocationList = true }) {
-                            Icon(
-                                imageVector = Icons.Filled.Search,
-                                contentDescription = "Search locations",
-                                tint = Color.White
-                            )
-                        }
-                        IconButton(onClick = { viewModel.toggleDarkMode() }) {
-                            Icon(
-                                imageVector = if (state.isDarkMode) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                                contentDescription = "Toggle theme",
-                                tint = Color.White
-                            )
-                        }
-                        IconButton(onClick = {
-                            if (!isCheckingUpdate) {
-                                isCheckingUpdate = true
-                                viewModel.loadAllData()
-                            }
-                        }) {
-                            if (state.isRefreshing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = Color.White
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Filled.Refresh,
-                                    contentDescription = "Refresh",
-                                    tint = Color.White
-                                )
-                            }
-                        }
-                        IconButton(onClick = {
-                            if (!isCheckingUpdate) {
-                                isCheckingUpdate = true
-                                scope.launch {
-                                    updateResult = UpdateChecker.check(context)
-                                    isCheckingUpdate = false
-                                }
-                            }
-                        }) {
-                            if (isCheckingUpdate) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = Color.White
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.GetApp,
-                                    contentDescription = "Check for updates",
-                                    tint = Color.White
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent
-                    )
-                )
-            }
+    BoxWithConstraints {
+        val isLandscape = maxWidth > maxHeight
+        val onOpenSearch: () -> Unit = { showLocationList = true }
+        val onShowFishingReports: () -> Unit = {
+            viewModel.fetchCatchReports()
+            showFishingReports = true
         }
-    ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // Main map
-            MapScreen(
+
+        if (isLandscape) {
+            LandscapeLayout(
                 state = state,
-                onLocationClick = { name ->
+                viewModel = viewModel,
+                snackbarHostState = snackbarHostState,
+                onOpenSearch = onOpenSearch,
+                onLocationSelected = { name ->
                     selectedLocationName = name
                     showBottomSheet = true
+                },
+                onShowFishingReports = onShowFishingReports,
+                isCheckingUpdate = isCheckingUpdate,
+                onCheckUpdate = {
+                    isCheckingUpdate = true
+                    scope.launch {
+                        updateResult = UpdateChecker.check(context)
+                        isCheckingUpdate = false
+                    }
                 }
             )
-
-            // Overlay controls (scrollable for landscape)
-            val glassBg = glassBackground(state.isDarkMode)
-            val glassBd = glassBorder(state.isDarkMode)
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(12.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = glassBg,
-                tonalElevation = 0.dp,
-                shadowElevation = 12.dp,
-                border = androidx.compose.foundation.BorderStroke(1.dp, glassBd)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .heightIn(max = 420.dp)
-                        .verticalScroll(rememberScrollState())
-                        .padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Layer selector
-                    LayerToggle(
-                        selectedLayer = state.selectedLayer,
-                        onLayerSelected = { layer ->
-                            viewModel.selectLayer(layer)
-                            showLayerMenu = false
-                        },
-                        expanded = showLayerMenu,
-                        onToggle = { showLayerMenu = !showLayerMenu }
-                    )
-
-                    // Refresh button
-                    SmallFloatingActionButton(
-                        onClick = { viewModel.loadAllData() },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = Color.White,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        if (state.isRefreshing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = Color.White
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = "Refresh",
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-
-                    // Fishing reports button
-                    SmallFloatingActionButton(
-                        onClick = {
-                            viewModel.fetchCatchReports()
-                            showFishingReports = true
-                        },
-                        containerColor = OceanTeal,
-                        contentColor = Color.White,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Menu,
-                            contentDescription = "Fishing Reports",
-                            modifier = Modifier.size(18.dp)
-                        )
+        } else {
+            PortraitLayout(
+                state = state,
+                viewModel = viewModel,
+                snackbarHostState = snackbarHostState,
+                onOpenSearch = onOpenSearch,
+                onLocationSelected = { name ->
+                    selectedLocationName = name
+                    showBottomSheet = true
+                },
+                onShowFishingReports = onShowFishingReports,
+                isCheckingUpdate = isCheckingUpdate,
+                onCheckUpdate = {
+                    isCheckingUpdate = true
+                    scope.launch {
+                        updateResult = UpdateChecker.check(context)
+                        isCheckingUpdate = false
                     }
                 }
-            }
-
-            // Debug: location count
-            Text(
-                text = "Weather: ${state.hourlyData.size}/${viewModel.allLocations.size}",
-                color = Color.White,
-                fontSize = 12.sp,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(8.dp)
-                    .background(Color(0xAA000000), RoundedCornerShape(4.dp))
-                    .padding(4.dp)
             )
-
-            // Bottom controls (scrollable for landscape)
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-                    .padding(bottom = 8.dp)
-                    .heightIn(max = 320.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = glassBg,
-                tonalElevation = 0.dp,
-                shadowElevation = 12.dp,
-                border = androidx.compose.foundation.BorderStroke(1.dp, glassBd)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        Legend(
-                            layer = state.selectedLayer,
-                            modifier = Modifier.width(160.dp)
-                        )
-                        if (state.favoriteLocations.isNotEmpty()) {
-                            FavoritesBar(
-                                favoriteNames = state.favoriteLocations,
-                                onFavoriteClick = { name ->
-                                    selectedLocationName = name
-                                    showBottomSheet = true
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                    TimeSlider(
-                        selectedDay = state.selectedDay,
-                        selectedHour = state.selectedHour,
-                        onDaySelected = { viewModel.selectDay(it) },
-                        onHourSelected = { viewModel.selectHour(it) }
-                    )
-                }
-            }
         }
     }
 
@@ -416,6 +228,459 @@ fun ScotlandWeatherApp(viewModel: WeatherViewModel = viewModel()) {
                     }
                 }
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PortraitLayout(
+    state: com.scotlandweather.app.data.model.MapState,
+    viewModel: WeatherViewModel,
+    snackbarHostState: SnackbarHostState,
+    onOpenSearch: () -> Unit,
+    onLocationSelected: (String) -> Unit,
+    onShowFishingReports: () -> Unit,
+    isCheckingUpdate: Boolean,
+    onCheckUpdate: () -> Unit
+) {
+    var showLayerMenu by remember { mutableStateOf(false) }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            val barBrush = if (state.isDarkMode) AppBarGradient else AppBarGradientLight
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(barBrush)
+            ) {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(
+                                text = "Fair Weather Fishing",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "Scotland Fishing Planner",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = onOpenSearch) {
+                            Icon(
+                                imageVector = Icons.Filled.Search,
+                                contentDescription = "Search locations",
+                                tint = Color.White
+                            )
+                        }
+                        IconButton(onClick = { viewModel.toggleDarkMode() }) {
+                            Icon(
+                                imageVector = if (state.isDarkMode) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                                contentDescription = "Toggle theme",
+                                tint = Color.White
+                            )
+                        }
+                        IconButton(onClick = {
+                            if (!isCheckingUpdate) {
+                                viewModel.loadAllData()
+                            }
+                        }) {
+                            if (state.isRefreshing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.White
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = "Refresh",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                        IconButton(onClick = onCheckUpdate) {
+                            if (isCheckingUpdate) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.White
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.GetApp,
+                                    contentDescription = "Check for updates",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent
+                    )
+                )
+            }
+        }
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            // Main map
+            MapScreen(
+                state = state,
+                onLocationClick = onLocationSelected
+            )
+
+            // Overlay controls (scrollable for landscape)
+            val glassBg = glassBackground(state.isDarkMode)
+            val glassBd = glassBorder(state.isDarkMode)
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = glassBg,
+                tonalElevation = 0.dp,
+                shadowElevation = 12.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, glassBd)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    LayerToggle(
+                        selectedLayer = state.selectedLayer,
+                        onLayerSelected = { layer ->
+                            viewModel.selectLayer(layer)
+                            showLayerMenu = false
+                        },
+                        expanded = showLayerMenu,
+                        onToggle = { showLayerMenu = !showLayerMenu }
+                    )
+
+                    SmallFloatingActionButton(
+                        onClick = { viewModel.loadAllData() },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (state.isRefreshing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = "Refresh",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    SmallFloatingActionButton(
+                        onClick = onShowFishingReports,
+                        containerColor = OceanTeal,
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Menu,
+                            contentDescription = "Fishing Reports",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            // Debug: location count
+            Text(
+                text = "Weather: ${state.hourlyData.size}/${viewModel.allLocations.size}",
+                color = Color.White,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp)
+                    .background(Color(0xAA000000), RoundedCornerShape(4.dp))
+                    .padding(4.dp)
+            )
+
+            // Bottom controls
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .padding(bottom = 8.dp)
+                    .heightIn(max = 320.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = glassBg,
+                tonalElevation = 0.dp,
+                shadowElevation = 12.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, glassBd)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Legend(
+                            layer = state.selectedLayer,
+                            modifier = Modifier.width(160.dp)
+                        )
+                        if (state.favoriteLocations.isNotEmpty()) {
+                            FavoritesBar(
+                                favoriteNames = state.favoriteLocations,
+                                onFavoriteClick = onLocationSelected,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    TimeSlider(
+                        selectedDay = state.selectedDay,
+                        selectedHour = state.selectedHour,
+                        onDaySelected = { viewModel.selectDay(it) },
+                        onHourSelected = { viewModel.selectHour(it) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LandscapeLayout(
+    state: com.scotlandweather.app.data.model.MapState,
+    viewModel: WeatherViewModel,
+    snackbarHostState: SnackbarHostState,
+    onOpenSearch: () -> Unit,
+    onLocationSelected: (String) -> Unit,
+    onShowFishingReports: () -> Unit,
+    isCheckingUpdate: Boolean,
+    onCheckUpdate: () -> Unit
+) {
+    var showLayerMenu by remember { mutableStateOf(false) }
+    val glassBg = glassBackground(state.isDarkMode)
+    val glassBd = glassBorder(state.isDarkMode)
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            val barBrush = if (state.isDarkMode) AppBarGradient else AppBarGradientLight
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(barBrush)
+            ) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "Fair Weather Fishing",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    },
+                    actions = {
+                        IconButton(onClick = onOpenSearch) {
+                            Icon(
+                                imageVector = Icons.Filled.Search,
+                                contentDescription = "Search locations",
+                                tint = Color.White
+                            )
+                        }
+                        IconButton(onClick = { viewModel.toggleDarkMode() }) {
+                            Icon(
+                                imageVector = if (state.isDarkMode) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                                contentDescription = "Toggle theme",
+                                tint = Color.White
+                            )
+                        }
+                        IconButton(onClick = {
+                            if (!isCheckingUpdate) {
+                                viewModel.loadAllData()
+                            }
+                        }) {
+                            if (state.isRefreshing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.White
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = "Refresh",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                        IconButton(onClick = onCheckUpdate) {
+                            if (isCheckingUpdate) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.White
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.GetApp,
+                                    contentDescription = "Check for updates",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent
+                    )
+                )
+            }
+        }
+    ) { padding ->
+        Row(modifier = Modifier.fillMaxSize().padding(padding)) {
+            // Side rail with controls
+            Surface(
+                modifier = Modifier
+                    .width(60.dp)
+                    .fillMaxHeight(),
+                shape = RoundedCornerShape(0.dp),
+                color = glassBg,
+                tonalElevation = 0.dp,
+                shadowElevation = 4.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, glassBd)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    LayerToggle(
+                        selectedLayer = state.selectedLayer,
+                        onLayerSelected = { layer ->
+                            viewModel.selectLayer(layer)
+                            showLayerMenu = false
+                        },
+                        expanded = showLayerMenu,
+                        onToggle = { showLayerMenu = !showLayerMenu }
+                    )
+
+                    SmallFloatingActionButton(
+                        onClick = { viewModel.loadAllData() },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        if (state.isRefreshing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = "Refresh",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    SmallFloatingActionButton(
+                        onClick = onShowFishingReports,
+                        containerColor = OceanTeal,
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Menu,
+                            contentDescription = "Fishing Reports",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    // Legend compact
+                    Legend(
+                        layer = state.selectedLayer,
+                        modifier = Modifier
+                            .width(48.dp)
+                            .heightIn(min = 80.dp)
+                    )
+
+                    // Favorites
+                    if (state.favoriteLocations.isNotEmpty()) {
+                        FavoritesBar(
+                            favoriteNames = state.favoriteLocations,
+                            onFavoriteClick = onLocationSelected,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+
+            // Map + bottom slider
+            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    MapScreen(
+                        state = state,
+                        onLocationClick = onLocationSelected
+                    )
+
+                    // Debug: location count
+                    Text(
+                        text = "Weather: ${state.hourlyData.size}/${viewModel.allLocations.size}",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(4.dp)
+                            .background(Color(0xAA000000), RoundedCornerShape(4.dp))
+                            .padding(4.dp)
+                    )
+                }
+
+                // Thin TimeSlider strip
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(0.dp),
+                    color = glassBg,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 8.dp,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, glassBd)
+                ) {
+                    TimeSlider(
+                        selectedDay = state.selectedDay,
+                        selectedHour = state.selectedHour,
+                        onDaySelected = { viewModel.selectDay(it) },
+                        onHourSelected = { viewModel.selectHour(it) }
+                    )
+                }
+            }
         }
     }
 }
